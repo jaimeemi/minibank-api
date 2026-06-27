@@ -1,0 +1,12 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="HCLBlockConflictingProperties" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="HCLDeprecatedElement" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="HCLLiteralValidness" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="HCLSimplifyExpression" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="HILConvertToHCL" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="HclBlockMissingProperty" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="TfDuplicatedProvider" enabled="false" level="ERROR" enabled_by_default="false" />
+  </profile>
+</component>

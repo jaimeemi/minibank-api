@@ -1,0 +1,35 @@
+### POST to example server
+
+### 1) Registrar transferencia de prueba
+POST http://localhost:9000/transfer
+Content-Type: application/json
+
+{
+  "origin": "123",
+  "destination": "456",
+  "amount": 1500
+}
+
+###
+
+### 2) Transferencia para Emilio
+POST http://localhost:9000/transfer
+Content-Type: application/json
+
+{
+  "origin": "321",
+  "destination": "emi",
+  "amount": 555
+}
+
+###
+
+### 3) Transferencia para Jaime
+POST http://localhost:9000/transfer
+Content-Type: application/json
+
+{
+  "origin": "111",
+  "destination": "jaime",
+  "amount": 9999
+}
