@@ -1,4 +1,9 @@
 package com.minibank.models.enums;
 
-public class StatusEnum {
+public enum StatusEnum {
+
+    PENDING,
+    APPROVED,
+    REJECTED
+
 }

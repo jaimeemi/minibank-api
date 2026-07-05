@@ -1,4 +1,4 @@
--- src/main/resources/postgre/transfers.sql
+-- src/main/resources/postgre/schema.sql
 
 CREATE TABLE IF NOT EXISTS transfers (
     id          BIGSERIAL,

@@ -27,10 +27,16 @@ RUN addgroup -S minibank && adduser -S minibank -G minibank
 
 # Copiamos el artefacto compilado desde la etapa anterior
 COPY --from=build /app/target/*.jar app.jar
+
 # Cambiamos la propiedad de los archivos al usuario sin privilegios
 RUN chown -R minibank:minibank /app
+
+# Cambiamos al usuario sin privilegios
+USER minibank
+
 # Exponemos el puerto configurado en el application.yml
 EXPOSE 9000
+
 # Comando óptimo para ejecutar la aplicación dentro del contenedor
 ENTRYPOINT ["java", "-jar", "app.jar"]
 
