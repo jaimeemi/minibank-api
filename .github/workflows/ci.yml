@@ -1,0 +1,28 @@
+name: CI - MiniBank Pipiline
+
+#1. Cuando se ejecuta: cada vez que haces un push a la rama 'main'
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    #2. Donde corre: en una maquina virtual de Ubuntu limpia provista de por GitHub
+    runs-on: ubuntu-latest
+
+    steps:
+    # Paso A: Clonar tu codigo del repositorio en la maquina virtual
+    - name: Checkout del codigo
+      uses: actions/checkout@v4
+
+    # Paso B: Configurar el entorno de Java 21
+    - name: Configurar JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temeriun'
+        cache: 'maven'' # Esto guarda las dependencias para que el proximo build sea rapido
+
+    # Paso C: Compilar y Ejecutar los test automaticos con Maven
+    - name: Compilar y testear con Maven
+      run: mvn clean package
