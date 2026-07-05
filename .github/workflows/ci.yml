@@ -10,6 +10,23 @@ jobs:
     # 2. Dónde corre: en una máquina virtual de Ubuntu limpia provista por GitHub
     runs-on: ubuntu-latest
 
+    # Levantamos el contenedor de Postgres real en la máquina de GitHub
+    services:
+      postgres-db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: minibank
+          POSTGRES_USER: emilio
+          POSTGRES_PASSWORD: supersecretpassword
+        ports:
+          - 5432:5432
+        # Monitoreamos que Postgres esté 100% listo antes de pasar a los steps
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5    
+
     steps:
     # Paso A: Clonar tu código del repositorio en la máquina virtual
     - name: Checkout del código
@@ -25,4 +42,8 @@ jobs:
 
     # Paso C: Compilar y ejecutar los tests automáticos con Maven
     - name: Compilar y testear con Maven
+      env:
+        SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/minibank
+        SPRING_DATASOURCE_USERNAME: emilio
+        SPRING_DATASOURCE_PASSWORD: supersecretpassword
       run: mvn clean package
