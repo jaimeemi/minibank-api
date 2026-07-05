@@ -13,7 +13,7 @@ jobs:
     # Permisos necesarios para que el pipeline pueda escribir/subir la imagen GHCR
     permissions:
       contents: read
-      package: write
+      packages: write
 
     # Levantamos el contenedor de Postgres real en la máquina de GitHub
     services:
