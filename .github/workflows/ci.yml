@@ -10,6 +10,11 @@ jobs:
     # 2. Dónde corre: en una máquina virtual de Ubuntu limpia provista por GitHub
     runs-on: ubuntu-latest
 
+    # Permisos necesarios para que el pipeline pueda escribir/subir la imagen GHCR
+    permissions:
+      contents: read
+      package: write
+
     # Levantamos el contenedor de Postgres real en la máquina de GitHub
     services:
       postgres-db:
@@ -47,3 +52,26 @@ jobs:
         SPRING_DATASOURCE_USERNAME: emilio
         SPRING_DATASOURCE_PASSWORD: supersecretpassword
       run: mvn clean package
+
+    # -------------------------------------------------------------
+    # NUEVO: Fase de Dockerización Automática (GHCR)
+    # -------------------------------------------------------------
+
+    # Paso 1: Loguearse en GitHub Container Registry de forma segura
+    - name: Iniciar sesión en GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # Paso 2: Construir la imagen usando tu Dockerfile local y subirla (Push)
+    - name: Construir y Subir Imagen Docker
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        # Convierte el nombre a minúsculas automáticamente para evitar errores de tags en GitHub
+        tags: |
+          ghcr.io/${{ github.repository_owner }}/minibank-api:latest
