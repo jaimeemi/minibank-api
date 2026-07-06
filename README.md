@@ -1,116 +1,182 @@
 # MiniBank API
 
-API REST bancaria construida con Spring Boot 3 que gestiona transferencias entre cuentas, con aprobación automática basada en monto y persistencia en PostgreSQL.
+[![CI - MiniBank Pipeline](https://github.com/your-username/minibank/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/minibank/actions/workflows/ci.yml)
+![Java](https://img.shields.io/badge/Java-21-blue)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.1-brightgreen)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
+![Docker](https://img.shields.io/badge/Docker-Compose-informational)
+
+## Overview
+
+MiniBank is a production-ready RESTful banking API built with **Spring Boot 3** and **Java 21**. It processes inter-account money transfers with automatic approval logic based on transfer amount, persists all transactions to **PostgreSQL**, and is fully containerized with Docker.
+
+The project demonstrates a clean layered architecture, MapStruct-based DTO mapping, schema-controlled DDL, OpenAPI documentation, and a GitHub Actions CI/CD pipeline that builds, tests, and publishes a Docker image to GitHub Container Registry (GHCR) on every push to `main`.
 
 ---
 
-## Stack Tecnológico
+## Tech Stack
 
-| Tecnología          | Versión   | Rol                              |
-|---------------------|-----------|----------------------------------|
-| Java                | 21        | Lenguaje base (Virtual Threads)  |
-| Spring Boot         | 3.4.1     | Framework principal              |
-| Spring Data JPA     | -         | Persistencia ORM                 |
-| PostgreSQL          | 16        | Base de datos relacional         |
-| MapStruct           | 1.6.3     | Mapeo DTO ↔ Entity               |
-| Lombok              | -         | Reducción de boilerplate         |
-| SpringDoc / Swagger | 2.8.5     | Documentación OpenAPI            |
-| Spring Kafka        | -         | Integración de mensajería (prep) |
-| Docker / Compose    | -         | Contenerización                  |
-| Maven               | 3.9.6     | Gestión de dependencias y build  |
+- **Java 21** — Virtual Threads enabled for high-throughput non-blocking I/O
+- **Spring Boot 3.4.1** — Web, Data JPA, Validation, Actuator
+- **Spring Data JPA + Hibernate** — ORM layer with manual DDL control (`ddl-auto: none`)
+- **PostgreSQL 16** — Relational persistence with custom indexes
+- **MapStruct 1.6.3** — Compile-time DTO ↔ Entity mapping
+- **Lombok** — Boilerplate reduction (`@Data`, `@Slf4j`, `@RequiredArgsConstructor`)
+- **SpringDoc / Swagger UI 2.8.5** — Interactive OpenAPI 3 documentation
+- **Spring Kafka** — Dependency included; autoconfiguration excluded (prepared for future event streaming)
+- **Docker + Docker Compose** — Multi-stage image build, unprivileged runtime user
+- **GitHub Actions** — CI pipeline: build → test → push image to GHCR
+- **JUnit 5 + Mockito** — Unit testing with no external dependencies (no H2)
+- **Maven 3.9.6** — Build and dependency management
 
 ---
 
-## Arquitectura
+## Architecture / System Flow
 
-El proyecto sigue una arquitectura en capas con separación clara de responsabilidades:
+The application follows a strict **layered architecture** with unidirectional dependency flow. Each layer has a single responsibility and communicates only with the layer directly below it.
 
 ```
-Controller (HTTP)
-     │
-     ▼
-  Service (Lógica de negocio)
-     │
-     ▼
-PersistenceAdapter (Componente de persistencia)
-     │
-     ▼
-  Repository (Spring Data JPA)
-     │
-     ▼
-  PostgreSQL
+HTTP Client
+    │
+    ▼
+┌─────────────────────────────┐
+│  TransferController (REST)  │  ← Interface + Impl separation
+└─────────────┬───────────────┘
+              │ delegates to
+              ▼
+┌─────────────────────────────┐
+│   TransferService (Logic)   │  ← Applies approval rule (amount ≤ 5000)
+└─────────────┬───────────────┘
+              │ delegates to
+              ▼
+┌──────────────────────────────────┐
+│  TransferPersistenceAdapter      │  ← Converts DTO → Entity via MapStruct
+└─────────────┬────────────────────┘
+              │ calls
+              ▼
+┌─────────────────────────────┐
+│   TransferRepository (JPA)  │  ← Spring Data interface
+└─────────────┬───────────────┘
+              │
+              ▼
+         PostgreSQL
 ```
 
-### Paquetes
+### Mermaid Diagram
 
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller as TransferControllerImpl
+    participant Service as TransferServiceImpl
+    participant Adapter as TransferPersistenceAdapter
+    participant Mapper as TransferMapper
+    participant Repo as TransferRepository
+    participant DB as PostgreSQL
+
+    Client->>Controller: POST /transfer {origin, destination, amount}
+    Controller->>Service: processTransfer(TransferDto)
+    Service->>Service: setStatus() — amount ≤ 5000 → APPROVED, else PENDING
+    Service->>Adapter: save(TransferDto)
+    Adapter->>Mapper: toEntity(TransferDto)
+    Mapper-->>Adapter: TransferEntity
+    Adapter->>Repo: save(TransferEntity)
+    Repo->>DB: INSERT INTO transfers
+    DB-->>Repo: Saved row with generated id & created_at
+    Repo-->>Adapter: TransferEntity (persisted)
+    Adapter->>Mapper: toDto(TransferEntity)
+    Mapper-->>Adapter: TransferDto
+    Adapter-->>Service: TransferDto
+    Service-->>Controller: TransferDto
+    Controller-->>Client: 200 OK {id, origin, destination, amount, status, requestedDate}
 ```
-com.minibank
-├── controller/          # Interfaz REST + implementación
-│   └── impl/
-├── service/             # Lógica de negocio
-│   └── impl/
-├── component/           # Adaptador de persistencia
-├── mapper/              # Conversión DTO ↔ Entity (MapStruct)
-├── models/
-│   ├── dto/             # Objetos de transferencia de datos
-│   ├── entitys/         # Entidades JPA
-│   └── enums/           # Estados de transferencia
-├── repositories/        # Repositorios Spring Data JPA
-├── error/               # Manejo global de excepciones
-└── ApiApplication.java  # Punto de entrada
+
+### Error Handling Flow
+
+```mermaid
+flowchart TD
+    A[Incoming Request] --> B{Bean Validation}
+    B -- Invalid fields --> C[GlobalExceptionHandler]
+    C --> D[400 Bad Request]
+    B -- Valid --> E[Service + Persistence]
+    E -- DataAccessException --> C
+    C --> F[500 Internal Server Error]
+    E -- Success --> G[200 OK]
 ```
 
 ---
 
-## Lógica de Negocio
+## Prerequisites & Installation
 
-### Procesamiento de Transferencias
+### Requirements
 
-El único endpoint disponible recibe una transferencia y aplica la siguiente regla de aprobación automática:
+| Tool           | Version  |
+|----------------|----------|
+| Docker         | 24+      |
+| Docker Compose | 2.x      |
+| Java (optional)| 21       |
+| Maven (optional)| 3.9.6   |
 
-| Condición              | Estado asignado |
-|------------------------|-----------------|
-| `amount <= 5000`       | `APPROVED`      |
-| `amount > 5000`        | `PENDING`       |
+### Run with Docker Compose (recommended)
 
-El estado `REJECTED` está definido en el enum pero no se asigna automáticamente en la versión actual (reservado para lógica futura).
+```bash
+# Clone the repository
+git clone https://github.com/your-username/minibank.git
+cd minibank
 
-### Flujo completo
+# Build and start both PostgreSQL and the API
+docker-compose up --build
+```
 
-1. El cliente envía `POST /transfer` con `origin`, `destination` y `amount`.
-2. El `TransferControllerImpl` delega al `TransferServiceImpl`.
-3. El servicio evalúa el monto y asigna el `StatusEnum` correspondiente.
-4. El `TransferPersistenceAdapter` convierte el DTO a entidad via `TransferMapper` y persiste en BD.
-5. La entidad guardada se convierte de vuelta a DTO y se retorna con `HTTP 200`.
+The API waits for PostgreSQL to pass its health check before starting. The database schema is initialized automatically from `src/main/resources/postgre/schema.sql`.
+
+### Run locally (without Docker)
+
+Requires a running PostgreSQL instance at `localhost:5432` with a database named `minibank`.
+
+```bash
+# Set environment variables (or use the defaults in application.yml)
+export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/minibank
+export SPRING_DATASOURCE_USERNAME=<your_user>
+export SPRING_DATASOURCE_PASSWORD=<your_password>
+
+./mvnw spring-boot:run
+```
+
+### Build the JAR
+
+```bash
+./mvnw clean package -DskipTests
+```
+
+### Run tests only
+
+```bash
+# Runs all unit tests (no DB required — no H2, pure Mockito)
+./mvnw test -Dgroups='!integration'
+```
 
 ---
 
-## Modelo de Datos
+## Core Features & Endpoints
 
-### Tabla `transfers`
+### Automatic Approval Logic
 
-| Columna       | Tipo                  | Descripción                        |
-|---------------|-----------------------|------------------------------------|
-| `id`          | `BIGSERIAL` (PK)      | Identificador autoincremental      |
-| `origin`      | `VARCHAR(50)`         | Cuenta de origen                   |
-| `destination` | `VARCHAR(50)`         | Cuenta de destino                  |
-| `amount`      | `NUMERIC(15,2)`       | Monto (debe ser > 0)               |
-| `status`      | `VARCHAR(20)`         | Estado: `APPROVED`, `PENDING`, `REJECTED` |
-| `created_at`  | `TIMESTAMP`           | Fecha de creación (automática)     |
+The core business rule applied on every transfer:
 
-Índices adicionales:
-- `idx_transfers_status` — optimiza búsquedas por estado
-- `idx_transfers_origin` — acelera conciliaciones por cuenta origen
+| Condition        | Assigned Status |
+|------------------|-----------------|
+| `amount ≤ 5000`  | `APPROVED`      |
+| `amount > 5000`  | `PENDING`       |
+| *(future)*       | `REJECTED`      |
 
----
+### REST Endpoints
 
-## API REST
+#### `POST /transfer`
 
-### `POST /transfer`
+Processes a new bank transfer and returns the persisted result.
 
-Procesa una nueva transferencia bancaria.
-
-**Request Body:**
+**Request Body**
 ```json
 {
   "origin": "123456",
@@ -119,7 +185,7 @@ Procesa una nueva transferencia bancaria.
 }
 ```
 
-**Response `200 OK`:**
+**Response `200 OK`**
 ```json
 {
   "id": 1,
@@ -131,79 +197,98 @@ Procesa una nueva transferencia bancaria.
 }
 ```
 
-**Respuestas de error:**
+**Error Responses**
 
-| Código | Causa                              |
-|--------|------------------------------------|
-| `400`  | Campos inválidos o faltantes       |
-| `500`  | Error de persistencia en base de datos |
+| Code  | Trigger                              | Body field `status` |
+|-------|--------------------------------------|---------------------|
+| `400` | Missing or invalid request fields    | `BAD_REQUEST`       |
+| `500` | Database persistence failure         | `ERROR`             |
 
----
+### Interactive API Documentation
 
-## Manejo de Errores
-
-`GlobalExceptionHandler` intercepta excepciones globalmente:
-
-- `DataAccessException` → `500` con mensaje genérico (no expone detalles internos)
-- `MethodArgumentNotValidException` → `400` con indicación de error de validación
+| Resource     | URL                                   |
+|--------------|---------------------------------------|
+| Swagger UI   | http://localhost:9000/swagger-ui.html |
+| OpenAPI JSON | http://localhost:9000/api-docs        |
 
 ---
 
-## Configuración
+## CI/CD Pipeline
 
-La aplicación se configura via variables de entorno (con valores por defecto para desarrollo local):
+The GitHub Actions workflow (`.github/workflows/ci.yml`) triggers on every push to `main` and executes the following stages:
 
-| Variable                    | Default                                      |
-|-----------------------------|----------------------------------------------|
-| `SPRING_DATASOURCE_URL`     | `jdbc:postgresql://localhost:5432/minibank`  |
-| `SPRING_DATASOURCE_USERNAME`| `emilio`                                     |
-| `SPRING_DATASOURCE_PASSWORD`| `postgres`                                   |
-| `SPRING_PROFILES_ACTIVE`    | -                                            |
-
-El esquema de BD se inicializa automáticamente desde `classpath:postgre/schema.sql` al arrancar.
-
----
-
-## Ejecución
-
-### Con Docker Compose (recomendado)
-
-```bash
-docker-compose up --build
+```mermaid
+flowchart LR
+    A[Push to main] --> B[Checkout Code]
+    B --> C[Setup JDK 21 + Maven Cache]
+    C --> D[Spin up PostgreSQL 16 Service]
+    D --> E[mvn clean package — Build & Test]
+    E --> F[Login to GHCR]
+    F --> G[Build Docker Image]
+    G --> H[Push to ghcr.io/owner/minibank-api:latest]
 ```
 
-Levanta PostgreSQL y la API juntos. La API espera a que la BD esté saludable antes de iniciar.
+- Uses a **real PostgreSQL 16** service container during tests (no mocks, no H2).
+- Maven dependency cache reduces build time on subsequent runs.
+- Docker image is published to **GitHub Container Registry** using `GITHUB_TOKEN` (no secrets required).
 
-### Local (sin Docker)
+---
 
-Requiere PostgreSQL corriendo en `localhost:5432` con la base de datos `minibank`.
+## Database Schema
 
-```bash
-./mvnw spring-boot:run
+```sql
+CREATE TABLE IF NOT EXISTS transfers (
+    id          BIGSERIAL PRIMARY KEY,
+    origin      VARCHAR(50)      NOT NULL,
+    destination VARCHAR(50)      NOT NULL,
+    amount      NUMERIC(15, 2)   NOT NULL CHECK (amount > 0),
+    status      VARCHAR(20)      NOT NULL,
+    created_at  TIMESTAMP        DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_transfers_status ON transfers(status);
+CREATE INDEX IF NOT EXISTS idx_transfers_origin ON transfers(origin);
 ```
 
-### Build del JAR
+- `idx_transfers_status` — optimizes queries filtering by `PENDING` or `APPROVED` status.
+- `idx_transfers_origin` — accelerates reconciliation queries by source account.
 
-```bash
-./mvnw clean package -DskipTests
+---
+
+## Project Structure
+
+```
+com.minibank
+├── controller/
+│   ├── TransferController.java          # REST interface with OpenAPI annotations
+│   └── impl/TransferControllerImpl.java # HTTP delegation to service
+├── service/
+│   ├── TransferService.java             # Business logic interface
+│   └── impl/TransferServiceImpl.java    # Approval rule + orchestration
+├── component/
+│   └── TransferPersistenceAdapter.java  # Persistence facade (DTO ↔ Entity + save)
+├── mapper/
+│   └── TransferMapper.java              # MapStruct interface (compile-time generated)
+├── models/
+│   ├── dto/TransferDto.java
+│   ├── entitys/TransferEntity.java
+│   └── enums/StatusEnum.java            # APPROVED | PENDING | REJECTED
+├── repositories/
+│   └── TransferRepository.java          # Spring Data JPA
+├── error/
+│   └── GlobalExceptionHandler.java      # @RestControllerAdvice — 400 / 500
+└── ApiApplication.java
 ```
 
 ---
 
-## Documentación Interactiva (Swagger UI)
+## DevOps & Future Enhancements
 
-Una vez levantada la aplicación:
+### 1. Kubernetes Deployment with Helm
+Package the application as a Helm chart to deploy on Kubernetes. Add a `HorizontalPodAutoscaler` targeting CPU/memory thresholds and a `PodDisruptionBudget` for zero-downtime rolling updates. The existing health check logic in Docker Compose maps directly to Kubernetes `readinessProbe` and `livenessProbe` definitions.
 
-| Recurso        | URL                                        |
-|----------------|--------------------------------------------|
-| Swagger UI     | http://localhost:9000/swagger-ui.html      |
-| OpenAPI JSON   | http://localhost:9000/api-docs             |
+### 2. Observability Stack (Metrics + Tracing)
+Integrate **Spring Boot Actuator** with **Micrometer** exporting metrics to **Prometheus**, visualized via **Grafana** dashboards. Add **OpenTelemetry** instrumentation for distributed tracing (e.g., with Tempo or Jaeger) to trace each transfer request end-to-end across service and persistence layers.
 
----
-
-## Notas de Diseño
-
-- **Virtual Threads (Java 21):** habilitados en el servidor para mayor throughput con I/O bloqueante.
-- **Kafka:** dependencia incluida pero autoconfiguración excluida. Preparado para integración futura de eventos de transferencia.
-- **DDL manual:** Hibernate no gestiona el esquema (`ddl-auto: none`); el control total es via `schema.sql`.
-- **Dockerfile multi-stage:** imagen de runtime mínima (`eclipse-temurin:21-jre-alpine`) con usuario sin privilegios por seguridad.
+### 3. Kafka Event Streaming for Transfer Events
+The Spring Kafka dependency is already included and autoconfiguration is intentionally excluded. The next step is to publish a `TransferProcessedEvent` to a Kafka topic after each successful persistence, enabling downstream consumers (e.g., a notification service or audit log) to react asynchronously without coupling to the core API.
