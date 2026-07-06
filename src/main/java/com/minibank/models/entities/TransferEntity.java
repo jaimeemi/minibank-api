@@ -1,4 +1,4 @@
-package com.minibank.models.entitys;
+package com.minibank.models.entities;
 
 import com.minibank.models.enums.StatusEnum;
 import jakarta.persistence.*;

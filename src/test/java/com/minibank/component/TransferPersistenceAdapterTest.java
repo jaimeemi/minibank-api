@@ -2,7 +2,7 @@ package com.minibank.component;
 
 import com.minibank.mapper.TransferMapper;
 import com.minibank.models.dto.TransferDto;
-import com.minibank.models.entitys.TransferEntity;
+import com.minibank.models.entities.TransferEntity;
 import com.minibank.models.enums.StatusEnum;
 import com.minibank.repositories.TransferRepository;
 import org.junit.jupiter.api.Test;

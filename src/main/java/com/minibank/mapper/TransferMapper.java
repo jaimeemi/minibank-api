@@ -1,7 +1,7 @@
 package com.minibank.mapper;
 
 import com.minibank.models.dto.TransferDto;
-import com.minibank.models.entitys.TransferEntity;
+import com.minibank.models.entities.TransferEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

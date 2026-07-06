@@ -24,11 +24,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true # Formatea el SQL en la consola para que sea legible
 
-  # Se mantiene Kafka excluido hasta que configures el broker
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
-
 # Configuración de SpringDoc / Swagger UI
 springdoc:
   api-docs:
