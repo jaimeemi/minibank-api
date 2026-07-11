@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minibank-config
+  namespace: default
+data:
+    # Configuration for the minibank application
+  SPRING_PROFILES_ACTIVE: "dev"
+  # Fijate que usamos el nombre DNS que le daremos al servicio de Postgres en K8s en lugar de localhost
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres-service:5432/minibank"
+  SPRING_DATASOURCE_USERNAME: "emilio"
+  SPRING_DATASOURCE_PASSWORD: "supersecretpassword"
+
